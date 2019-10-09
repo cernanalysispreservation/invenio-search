@@ -5,7 +5,6 @@
 #
 # Invenio is free software; you can redistribute it and/or modify it
 # under the terms of the MIT License; see LICENSE file for more details.
-
 """Invenio module for information retrieval."""
 
 from __future__ import absolute_import, print_function
@@ -20,7 +19,7 @@ from elasticsearch import Elasticsearch
 from elasticsearch.connection import RequestsHttpConnection
 from pkg_resources import iter_entry_points, resource_filename, \
     resource_isdir, resource_listdir
-from werkzeug.utils import cached_property
+from werkzeug.utils import cached_property, import_string
 
 from . import config
 from .cli import index as index_cmd
@@ -39,8 +38,8 @@ def _get_indices(tree_or_filename):
 
 class _SearchState(object):
     """Store connection to elastic client and registered indexes."""
-
-    def __init__(self, app,
+    def __init__(self,
+                 app,
                  entry_point_group_mappings=None,
                  entry_point_group_templates=None,
                  **kwargs):
@@ -53,7 +52,6 @@ class _SearchState(object):
             The entrypoint group name to load templates.
         """
         self.app = app
-        self.mappings = {}
         self.aliases = {}
         self.number_of_indexes = 0
         self._client = kwargs.get('client')
@@ -66,6 +64,21 @@ class _SearchState(object):
             warnings.warn(
                 "Elasticsearch v2 support will be removed.",
                 DeprecationWarning)
+        get_mappings = self.app.config.get('SEARCH_GET_MAPPINGS_IMP')
+
+        if get_mappings:
+            self.get_mappings = import_string(get_mappings)
+
+    def __getattr__(self, name):
+        """Call get_mappings() method on mappings retrieval."""
+        if name == 'mappings':
+            return self.get_mappings()
+        else:
+            raise AttributeError
+
+    def get_mappings(self):
+        """Default get_mappings imp, return empty object."""
+        return {}
 
     @cached_property
     def templates(self):
@@ -103,8 +116,7 @@ class _SearchState(object):
                     "Elasticsearch version is deprecated. Please move your "
                     "mappings to a subfolder named according to the "
                     "Elasticsearch version which your mappings are intended "
-                    "for. (e.g. '{}/v2/{}')".format(
-                        package_name, alias),
+                    "for. (e.g. '{}/v2/{}')".format(package_name, alias),
                     PendingDeprecationWarning)
         else:
             package_name = '{}.v{}'.format(package_name, ES_VERSION[0])
@@ -130,7 +142,9 @@ class _SearchState(object):
                     continue
 
                 ext = os.path.splitext(filename)[1]
-                if ext not in {'.json', }:
+                if ext not in {
+                        '.json',
+                }:
                     continue
 
                 assert index_name not in data, 'Duplicate index'
@@ -158,8 +172,7 @@ class _SearchState(object):
                     "Please move your templates to a subfolder named "
                     "according to the Elasticsearch version "
                     "which your templates are intended "
-                    "for. (e.g. '{}.v{}')".format(directory,
-                                                  ES_VERSION[0]))
+                    "for. (e.g. '{}.v{}')".format(directory, ES_VERSION[0]))
         result = {}
         module_name, parts = directory.split('.')[0], directory.split('.')[1:]
         parts = tuple(parts)
@@ -179,7 +192,9 @@ class _SearchState(object):
                     continue
 
                 ext = os.path.splitext(filename)[1]
-                if ext not in {'.json', }:
+                if ext not in {
+                        '.json',
+                }:
                     continue
 
                 result[template_name] = resource_filename(
@@ -228,8 +243,8 @@ class _SearchState(object):
         """
         self.client.indices.flush(wait_if_ongoing=True, index=index)
         self.client.indices.refresh(index=index)
-        self.client.cluster.health(
-            wait_for_status='yellow', request_timeout=30)
+        self.client.cluster.health(wait_for_status='yellow',
+                                   request_timeout=30)
         return True
 
     @property
@@ -257,8 +272,10 @@ class _SearchState(object):
         if whitelisted_aliases is None:
             return self.aliases
         else:
-            return {k: v for k, v in self.aliases.items()
-                    if k in whitelisted_aliases}
+            return {
+                k: v
+                for k, v in self.aliases.items() if k in whitelisted_aliases
+            }
 
     def create(self, ignore=None):
         """Yield tuple with created index name and responses from a client."""
@@ -350,7 +367,6 @@ class _SearchState(object):
 
 class InvenioSearch(object):
     """Invenio-Search extension."""
-
     def __init__(self, app=None, **kwargs):
         """Extension initialization.
 
@@ -361,7 +377,8 @@ class InvenioSearch(object):
         if app:
             self.init_app(app, **kwargs)
 
-    def init_app(self, app,
+    def init_app(self,
+                 app,
                  entry_point_group_mappings='invenio_search.mappings',
                  entry_point_group_templates='invenio_search.templates',
                  **kwargs):
@@ -377,8 +394,7 @@ class InvenioSearch(object):
             app,
             entry_point_group_mappings=entry_point_group_mappings,
             entry_point_group_templates=entry_point_group_templates,
-            **kwargs
-        )
+            **kwargs)
         self._state = app.extensions['invenio-search'] = state
 
     @staticmethod
