@@ -51,10 +51,10 @@ class _SearchState(object):
         if entry_point_group_mappings:
             self.load_entry_point_group_mappings(entry_point_group_mappings)
 
-        get_mappings = self.app.config.get('SEARCH_GET_MAPPINGS_IMP')
-
-        if get_mappings:
-            self.get_mappings = import_string(get_mappings)
+        with app.app_context():
+            get_mappings = app.config.get('SEARCH_GET_MAPPINGS_IMP')
+            if get_mappings:
+                self.get_mappings = import_string(get_mappings)
 
     def __getattr__(self, name):
         """Call get_mappings() method on mappings retrieval."""
