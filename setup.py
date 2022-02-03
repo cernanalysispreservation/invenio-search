@@ -16,21 +16,15 @@ readme = open('README.rst').read()
 history = open('CHANGES.rst').read()
 
 tests_require = [
-    'check-manifest>=0.25',
-    'coverage>=4.0',
     'invenio-db[versioning]>=1.0.0',
-    'isort>=4.2.15',
     'mock>=1.3.0',
-    'pydocstyle>=1.0.0',
-    'pytest-cov>=1.8.0',
-    'pytest-pep8>=1.0.6',
-    'pytest>=2.8.0',
+    'pytest-invenio>=1.4.0'
 ]
 
 extras_require = {
     'docs': [
-        'Sphinx>=1.5.6,<1.6',
-        'invenio-accounts>=1.0.0',
+        'Sphinx>=3',
+        'invenio-accounts>=1.4.0',
     ],
     # Elasticsearch version
     'elasticsearch2': [
@@ -43,10 +37,11 @@ extras_require = {
     ],
     'elasticsearch6': [
         'elasticsearch>=6.0.0,<7.0.0',
-        'elasticsearch-dsl>=6.0.0,<7.0.0',
+        'elasticsearch-dsl>=6.0.0,<6.2.0',
     ],
-    'records': [
-        'invenio-records>=1.0.0',
+    'elasticsearch7': [
+        'elasticsearch>=7.0.0,<7.14',
+        'elasticsearch-dsl>=7.0.0,<8.0.0',
     ],
     'tests': tests_require,
 }
@@ -54,20 +49,18 @@ extras_require = {
 extras_require['all'] = []
 for name, reqs in extras_require.items():
     if name[0] == ':' or name in (
-            'elasticsearch2', 'elasticsearch5', 'elasticsearch6'):
+            'elasticsearch2', 'elasticsearch5', 'elasticsearch6',
+            'elasticsearch7'):
         continue
     extras_require['all'].extend(reqs)
 
-
-extras_require['tests'] += extras_require['records']
 
 setup_requires = [
     'pytest-runner>=2.6.2',
 ]
 
 install_requires = [
-    'Flask>=0.11.1',
-    'requests>=2.4.0',
+    'invenio-base>=1.2.3',
 ]
 
 packages = find_packages()
@@ -112,10 +105,9 @@ setup(
         'Programming Language :: Python',
         'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
         'Topic :: Software Development :: Libraries :: Python Modules',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: Implementation :: CPython',
         'Development Status :: 5 - Production/Stable',
     ],

@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of Invenio.
-# Copyright (C) 2016-2018 CERN.
+# Copyright (C) 2018 CERN.
 #
 # Invenio is free software; you can redistribute it and/or modify it
 # under the terms of the MIT License; see LICENSE file for more details.
 
-flask-security>=1.7.5
-flask-menu>=0.5.1
-invenio-accounts>=1.0.0a14
+"""Mock module used to test loading of ES resources."""

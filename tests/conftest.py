@@ -9,8 +9,6 @@
 
 """Pytest configuration."""
 
-from __future__ import absolute_import, print_function
-
 import os
 import shutil
 import sys
@@ -18,9 +16,6 @@ import tempfile
 
 import pytest
 from flask import Flask
-from invenio_db import InvenioDB
-from sqlalchemy_utils.functions import create_database, database_exists, \
-    drop_database
 
 from invenio_search import InvenioSearch
 
@@ -29,7 +24,7 @@ sys.path.append(
                  'tests/mock_module'))
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def app():
     """Flask application fixture."""
     # Set temporary instance path for sqlite
@@ -45,35 +40,6 @@ def app():
 
     # Teardown instance path.
     shutil.rmtree(instance_path)
-
-
-@pytest.fixture()
-def records_app(request):
-    """Initialize InvenioRecords."""
-    app = Flask('records_testapp')
-    app.config.update(
-        TESTING=True,
-        SQLALCHEMY_DATABASE_URI=os.environ.get(
-            'SQLALCHEMY_DATABASE_URI', 'sqlite:///test.db'
-        ),
-    )
-    InvenioDB(app)
-    from invenio_records import InvenioRecords
-    from invenio_db import db
-    InvenioRecords(app)
-    InvenioSearch(app)
-
-    with app.app_context():
-        if not database_exists(str(db.engine.url)):
-            create_database(str(db.engine.url))
-        db.create_all()
-
-    def teardown():
-        with app.app_context():
-            db.drop_all()
-
-    request.addfinalizer(teardown)
-    return app
 
 
 def mock_iter_entry_points_factory(data, mocked_group):
