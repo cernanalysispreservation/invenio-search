@@ -15,6 +15,8 @@ import os
 import warnings
 
 from elasticsearch import VERSION as ES_VERSION
+from elasticsearch import Elasticsearch
+from elasticsearch.connection import RequestsHttpConnection
 from pkg_resources import iter_entry_points, resource_filename, \
     resource_isdir, resource_listdir
 from werkzeug.utils import cached_property, import_string
@@ -22,7 +24,7 @@ from werkzeug.utils import cached_property, import_string
 from . import config
 from .cli import index as index_cmd
 from .proxies import current_search_client
-from .utils import build_index_name
+from .utils import build_index_name, prefix_index
 
 
 def _get_indices(tree_or_filename):
@@ -76,12 +78,18 @@ class _SearchState(object):
 
     @cached_property
     def templates(self):
-        result = None
+        """Generate a dictionary with template names and file paths."""
+        templates = {}
+        result = []
         if self.entry_point_group_templates:
             result = self.load_entry_point_group_templates(
-                self.entry_point_group_templates)
-        return {k: v for d in result for k, v in d.items()} \
-            if result is not None else {}
+                self.entry_point_group_templates) or []
+
+        for template in result:
+            for name, path in template.items():
+                templates[name] = path
+
+        return templates
 
     def register_mappings(self, alias, package_name):
         """Register mappings from a package under given alias.
@@ -110,7 +118,7 @@ class _SearchState(object):
             package_name = '{}.v{}'.format(package_name, ES_VERSION[0])
 
         def _walk_dir(aliases, *parts):
-            root_name = build_index_name(*parts)
+            root_name = build_index_name(self.app, *parts)
             resource_name = os.path.join(*parts)
 
             if root_name not in aliases:
@@ -119,7 +127,10 @@ class _SearchState(object):
             data = aliases.get(root_name, {})
 
             for filename in resource_listdir(package_name, resource_name):
-                index_name = build_index_name(*(parts + (filename, )))
+                index_name = build_index_name(
+                    self.app,
+                    *(parts + (filename, ))
+                )
                 file_path = os.path.join(resource_name, filename)
 
                 if resource_isdir(package_name, file_path):
@@ -166,7 +177,10 @@ class _SearchState(object):
             resource_name = os.path.join(*parts)
 
             for filename in resource_listdir(module_name, resource_name):
-                template_name = build_index_name(*(parts[1:] + (filename, )))
+                template_name = build_index_name(
+                    self.app,
+                    *(parts[1:] + (filename, ))
+                )
                 file_path = os.path.join(resource_name, filename)
 
                 if resource_isdir(module_name, file_path):
@@ -202,13 +216,11 @@ class _SearchState(object):
 
     def _client_builder(self):
         """Build Elasticsearch client."""
-        from elasticsearch import Elasticsearch
-        from elasticsearch.connection import RequestsHttpConnection
-
-        return Elasticsearch(
-            hosts=self.app.config.get('SEARCH_ELASTIC_HOSTS'),
-            connection_class=RequestsHttpConnection,
-        )
+        client_config = self.app.config.get('SEARCH_CLIENT_CONFIG') or {}
+        client_config.setdefault(
+            'hosts', self.app.config.get('SEARCH_ELASTIC_HOSTS'))
+        client_config.setdefault('connection_class', RequestsHttpConnection)
+        return Elasticsearch(**client_config)
 
     @property
     def client(self):
@@ -245,7 +257,14 @@ class _SearchState(object):
         `SEARCH_MAPPINGS` config variable. If the `SEARCH_MAPPINGS` is set to
         `None` (the default), all aliases are included.
         """
-        whitelisted_aliases = self.app.config.get('SEARCH_MAPPINGS')
+        search_mappings = self.app.config.get('SEARCH_MAPPINGS')
+        if search_mappings:
+            whitelisted_aliases = [
+                prefix_index(self.app, index) for index in search_mappings
+            ]
+        else:
+            whitelisted_aliases = search_mappings
+
         if whitelisted_aliases is None:
             return self.aliases
         else:
@@ -287,13 +306,27 @@ class _SearchState(object):
         """Yield tuple with registered template and response from client."""
         ignore = ignore or []
 
+        def _replace_prefix(template_path, body):
+            """Replace index prefix in template request body."""
+            pattern = '__SEARCH_INDEX_PREFIX__'
+
+            prefix = self.app.config['SEARCH_INDEX_PREFIX'] or ''
+            if prefix:
+                assert pattern in body, "You are using the prefix `{0}`, "
+                "but the template `{1}` does not contain the "
+                "pattern `{2}`.".format(prefix, template_path, pattern)
+
+            return body.replace(pattern, prefix)
+
         def _put_template(template):
             """Put template in search client."""
-            with open(self.templates[template], 'r') as body:
+            with open(self.templates[template], 'r') as fp:
+                body = fp.read()
+                replaced_body = _replace_prefix(self.templates[template], body)
                 return self.templates[template],\
                     current_search_client.indices.put_template(
                         name=template,
-                        body=json.load(body),
+                        body=json.loads(replaced_body),
                         ignore=ignore,
                 )
 

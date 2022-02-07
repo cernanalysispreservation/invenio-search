@@ -11,13 +11,15 @@
 import hashlib
 from functools import partial
 
+import six
 from elasticsearch import VERSION as ES_VERSION
 from elasticsearch_dsl import FacetedSearch, Search
 from elasticsearch_dsl.faceted_search import FacetedResponse
 from elasticsearch_dsl.query import Bool, Ids
-from flask import request
+from flask import current_app, request
 
 from .proxies import current_search_client
+from .utils import prefix_index
 
 
 class DefaultFilter(object):
@@ -64,7 +66,7 @@ class MinShouldMatch(str):
         return False
 
 
-class RecordsSearch(Search):
+class BaseRecordsSearch(Search):
     """Example subclass for searching records using Elastic DSL."""
 
     class Meta:
@@ -86,8 +88,13 @@ class RecordsSearch(Search):
         kwargs.setdefault('index', getattr(self.Meta, 'index', None))
         kwargs.setdefault('doc_type', getattr(self.Meta, 'doc_types', None))
         kwargs.setdefault('using', current_search_client)
+        kwargs.setdefault('extra', {})
 
-        super(RecordsSearch, self).__init__(**kwargs)
+        min_score = current_app.config.get('SEARCH_RESULTS_MIN_SCORE')
+        if min_score:
+            kwargs['extra'].update(min_score=min_score)
+
+        super(BaseRecordsSearch, self).__init__(**kwargs)
 
         default_filter = getattr(self.Meta, 'default_filter', None)
         if default_filter:
@@ -124,7 +131,7 @@ class RecordsSearch(Search):
         class RecordsFacetedSearch(FacetedSearch):
             """Pass defaults from ``cls.Meta`` object."""
 
-            index = search_._index[0]
+            index = prefix_index(app=current_app, index=search_._index[0])
             doc_types = getattr(search_.Meta, 'doc_types', ['_all'])
             fields = getattr(search_.Meta, 'fields', ('*', ))
             facets = getattr(search_.Meta, 'facets', {})
@@ -172,3 +179,60 @@ class RecordsSearch(Search):
             alg.update(user_hash.encode('utf8'))
             return alg.hexdigest()
         return None
+
+
+class PrefixedIndexList(list):
+    """Custom list type for avoiding double prefixing."""
+
+    pass
+
+
+class RecordsSearch(BaseRecordsSearch):
+    """Example subclass for searching records using index prefixing."""
+
+    def __init__(self, **kwargs):
+        """Using PrefixedIndexList type to avoid double prefixing."""
+        # at object instantiation, kwargs['index'] is not defined.
+        # Elasticsearch-dsl-py re-instantiated the object at each search
+        # by cloning it and passing as kwargs the list of indices
+        # kwargs['index'] = ['index-name1', 'index-name2']
+        _index_param = kwargs.get('index', getattr(self.Meta, 'index', None))
+        if not isinstance(_index_param, PrefixedIndexList):
+            if isinstance(_index_param, (tuple, list)):
+                _prefixed_index_list = [
+                    prefix_index(app=current_app,
+                                 index=_index) for _index in _index_param]
+                kwargs.update({'index': _prefixed_index_list})
+            elif isinstance(_index_param, six.string_types):
+                _splitted_index = _index_param.strip().split(',')
+                if len(_splitted_index) > 1:
+                    _prefix_index_list = [
+                        prefix_index(current_app, _index)
+                        for _index in _splitted_index]
+                    _prefix_index_param = ','.join(_prefix_index_list)
+                    kwargs.update({
+                        'index': _prefix_index_param})
+                else:
+                    kwargs.update({
+                        'index': prefix_index(app=current_app,
+                                              index=_index_param)})
+                _index_param = [_index_param]
+            self._original_index = _index_param
+
+        super(RecordsSearch, self).__init__(**kwargs)
+        if self._index:
+            self._index = PrefixedIndexList(self._index)
+
+    def _clone(self):
+        """Clone `_original_index` attribute.
+
+        During re-instantiation Elasticsearch-dsl-py calls `self._clone`
+        to copy over the search object. We override the method so we can
+        copy the `_original_index` attribute.
+        """
+        s = super(RecordsSearch, self)._clone()
+        s._original_index = self._original_index
+        return s
+
+
+UnPrefixedRecordsSearch = BaseRecordsSearch

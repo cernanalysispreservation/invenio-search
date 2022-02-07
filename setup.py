@@ -16,15 +16,16 @@ readme = open('README.rst').read()
 history = open('CHANGES.rst').read()
 
 tests_require = [
-    'check-manifest>=0.25',
+    'check-manifest>=0.35',
     'coverage>=4.0',
     'invenio-db[versioning]>=1.0.0',
     'isort>=4.2.15',
     'mock>=1.3.0',
     'pydocstyle>=1.0.0',
     'pytest-cov>=1.8.0',
-    'pytest-pep8>=1.0.6',
-    'pytest>=2.8.0',
+    'pytest-random-order>=0.5.4',
+    "pytest-pep8>=1.0.6",
+    'pytest>=3.8.1,<4',
 ]
 
 extras_require = {
@@ -43,7 +44,11 @@ extras_require = {
     ],
     'elasticsearch6': [
         'elasticsearch>=6.0.0,<7.0.0',
-        'elasticsearch-dsl>=6.0.0,<7.0.0',
+        'elasticsearch-dsl>=6.0.0,<6.2.0',
+    ],
+    'elasticsearch7': [
+        'elasticsearch>=7.0.0,<8.0.0',
+        'elasticsearch-dsl>=7.0.0,<8.0.0',
     ],
     'records': [
         'invenio-records>=1.0.0',
@@ -54,7 +59,8 @@ extras_require = {
 extras_require['all'] = []
 for name, reqs in extras_require.items():
     if name[0] == ':' or name in (
-            'elasticsearch2', 'elasticsearch5', 'elasticsearch6'):
+            'elasticsearch2', 'elasticsearch5', 'elasticsearch6',
+            'elasticsearch7'):
         continue
     extras_require['all'].extend(reqs)
 
@@ -67,7 +73,11 @@ setup_requires = [
 
 install_requires = [
     'Flask>=0.11.1',
-    'requests>=2.4.0',
+    # "requests" has hard version range dependency on "idna" and "urllib3"
+    # Every time "idna" and "urllib3" are updated, installation breaks because
+    # "requests" dependencies are not resolved properly.
+    'urllib3<1.25,>=1.21.1',  # from "requests"
+    'idna>=2.5,<2.8',  # from "requests"
 ]
 
 packages = find_packages()

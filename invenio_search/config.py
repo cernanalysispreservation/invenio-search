@@ -40,6 +40,28 @@ the different nodes. Please see
 for further details.
 """
 
+SEARCH_CLIENT_CONFIG = None
+"""Elasticsearch client configuration.
+
+If provided, this configuration dictionary will be passed to the initialization
+of the :class:`elasticsearch:elasticsearch.Elasticsearch` client instance used
+by the module.
+
+
+If not set, for the ``hosts`` key, :py:data:`.SEARCH_ELASTIC_HOSTS` will be
+used and for the ``connection_class`` key
+:class:`elasticsearch:elasticsearch.connection.RequestsHttpConnection`.
+
+Example value:
+
+.. code-block:: python
+
+   # e.g. for smaller/slower machines or development/CI you might want to be a
+   # bit more relaxed in terms of timeouts and failure retries.
+   dict(timeout=30, max_retries=5,
+   )
+"""
+
 SEARCH_MAPPINGS = None  # loads all mappings and creates aliases for them
 """List of aliases for which, their search mappings should be created.
 
@@ -63,4 +85,46 @@ and their mappings for `authors`:
 
     # and in your config.py
     SEARCH_MAPPINGS = ['records']
+"""
+
+SEARCH_RESULTS_MIN_SCORE = None
+"""If set, the `min_score` parameter is added to each search request body.
+
+The `min_score` parameter excludes results which have a `_score` less than
+the minimum specified in `min_score`.
+
+Note that the `max_score` varies depending on the number of results for a given
+search query and it is not absolute value. Therefore, setting `min_score` too
+high can lead to 0 results because it can be higher than any result's `_score`.
+
+Please refer to `Elasticsearch min_score documentation
+<https://www.elastic.co/guide/en/elasticsearch/reference/current/
+search-request-min-score.html>`_ for more information.
+"""
+
+SEARCH_INDEX_PREFIX = ''
+"""Any index, alias and templates will be prefixed with this string.
+
+Useful to host multiple instances of the app on the same Elasticsearch cluster,
+for example on one app you can set it to `dev-` and on the other to `prod-`,
+and each will create non-colliding indices prefixed with the corresponding
+string.
+
+Usage example:
+
+.. code-block:: python
+
+    # in your config.py
+    SEARCH_INDEX_PREFIX = 'prod-'
+
+For templates, ensure that the prefix `__SEARCH_INDEX_PREFIX__` is added to
+your index names. This pattern will be replaced by the prefix config value.
+
+Usage example in your template.json:
+
+.. code-block:: json
+
+    {
+        "index_patterns": ["__SEARCH_INDEX_PREFIX__myindex-name-*"]
+    }
 """
