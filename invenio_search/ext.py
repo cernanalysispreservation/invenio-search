@@ -44,7 +44,6 @@ class _SearchState(object):
         """
         self.app = app
         self.aliases = {}
-        self.mappings = {}
         self._client = kwargs.get('client')
         self.entry_point_group_templates = entry_point_group_templates
         self._current_suffix = None
@@ -305,70 +304,31 @@ class _SearchState(object):
     def create(self, ignore=None):
         """Yield tuple with created index name and responses from a client."""
         ignore = ignore or []
-        new_indices = {}
-        actions = []
 
-        def ensure_not_exists(name):
-            if self.client.indices.exists(name):
-                raise IndexAlreadyExistsError(
-                    'index/alias with name "{}" already exists'.format(name))
-
-        def _build(tree_or_filename, alias=None):
-            """Build a list of index/alias actions to perform."""
+        def _create(tree_or_filename, alias=None):
+            """Create indices and aliases by walking DFS."""
+            # Iterate over aliases:
             for name, value in tree_or_filename.items():
                 if isinstance(value, dict):
-                    _build(value, alias=name)
+                    for result in _create(value, alias=name):
+                        yield result
                 else:
-                    index_result, alias_result = \
-                        self.create_index(
-                            name,
+                    with open(value, 'r') as body:
+                        yield name, self.client.indices.create(
+                            index=name,
+                            body=json.load(body),
                             ignore=ignore,
-                            dry_run=True
                         )
-                    ensure_not_exists(index_result[0])
-                    new_indices[name] = index_result[0]
-                    if alias_result[0]:
-                        ensure_not_exists(alias_result[0])
-                        actions.append(dict(
-                            type='create_index',
-                            index=name,
-                            create_write_alias=True
-                        ))
-                    else:
-                        actions.append(dict(
-                            type='create_index',
-                            index=name,
-                            create_write_alias=False
-                        ))
+
             if alias:
-                alias_indices = self._get_indices(tree_or_filename)
-                alias_indices = [new_indices[i] for i in alias_indices]
-                alias_name = build_alias_name(alias, app=self.app)
-                ensure_not_exists(alias_name)
-                actions.append(dict(
-                    type='create_alias',
-                    index=alias_indices,
-                    alias=alias_name
-                ))
-
-        _build(self.active_aliases)
-
-        for action in actions:
-            if action['type'] == 'create_index':
-                index_result, alias_result = self.create_index(
-                    action['index'],
-                    create_write_alias=action.get('create_write_alias', True),
-                    ignore=ignore
-                )
-                yield index_result
-                if alias_result[0]:
-                    yield alias_result
-            elif action['type'] == 'create_alias':
-                yield action['alias'], self.client.indices.put_alias(
-                    index=action['index'],
-                    name=action['alias'],
+                yield alias, self.client.indices.put_alias(
+                    index=list(self._get_indices(tree_or_filename)),
+                    name=alias,
                     ignore=ignore,
                 )
+
+        for result in _create(self.active_aliases):
+            yield result
 
     def put_templates(self, ignore=None):
         """Yield tuple with registered template and response from client."""
