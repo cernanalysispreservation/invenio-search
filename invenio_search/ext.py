@@ -14,8 +14,8 @@ import json
 import os
 import warnings
 
-from elasticsearch import VERSION as ES_VERSION
-from elasticsearch import Elasticsearch
+from .compat import VERSION as ES_VERSION
+from .compat import Elasticsearch
 from pkg_resources import iter_entry_points, resource_filename, \
     resource_isdir, resource_listdir
 from werkzeug.utils import cached_property, import_string

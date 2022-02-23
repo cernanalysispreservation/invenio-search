@@ -8,14 +8,13 @@
 
 """Click command-line interface for managing search indexes."""
 
-from __future__ import absolute_import, print_function
 
 import json
 import sys
 from functools import wraps
 
 import click
-from elasticsearch import VERSION as ES_VERSION
+from .compat import VERSION as ES_VERSION
 from flask.cli import with_appcontext
 
 from .proxies import current_search, current_search_client
