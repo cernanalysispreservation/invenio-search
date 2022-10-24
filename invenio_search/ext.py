@@ -213,7 +213,7 @@ class _SearchState(object):
         """Build Elasticsearch client."""
         client_config = self.app.config.get('SEARCH_CLIENT_CONFIG') or {}
         client_config.setdefault(
-            'hosts', self.app.config.get('SEARCH_ELASTIC_HOSTS'))
+            'hosts', self.app.config.get('SEARCH_HOSTS'))
         return SearchEngine(**client_config)
 
     @property

@@ -45,7 +45,7 @@ def test_client_config():
     """Test Elasticsearch client configuration."""
     app = Flask('testapp')
     app.config['SEARCH_CLIENT_CONFIG'] = {'timeout': 30, 'foo': 'bar'}
-    with patch('elasticsearch.Elasticsearch.__init__') as mock_es_init:
+    with patch('invenio_search.engine.SearchEngine.__init__') as mock_es_init:
         mock_es_init.return_value = None
         ext = InvenioSearch(app)
         es_client = ext.client  # trigger client initialization

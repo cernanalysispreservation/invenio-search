@@ -26,10 +26,10 @@ keyword arguments in the two following classes:
 - :py:class:`elasticsearch.Transport`
 
 If you specify the key ``hosts`` in this dictionary, the configuration variable
-:py:class:`~invenio_search.config.SEARCH_ELASTIC_HOSTS` will have no effect.
+:py:class:`~invenio_search.config.SEARCH_HOSTS` will have no effect.
 """
 
-SEARCH_ELASTIC_HOSTS = None  # default localhost
+SEARCH_HOSTS = None  # default localhost
 """Elasticsearch hosts.
 
 By default, Invenio connects to ``localhost:9200``.
