@@ -14,7 +14,7 @@ import sys
 from functools import wraps
 
 import click
-from .compat import VERSION as ES_VERSION
+from .engine import SEARCH_DISTRIBUTION, search
 from flask.cli import with_appcontext
 
 from .proxies import current_search, current_search_client
@@ -26,21 +26,35 @@ def abort_if_false(ctx, param, value):
         ctx.abort()
 
 
-def es_version_check(f):
+def search_version_check(f):
     """Decorator to check Elasticsearch version."""
     @wraps(f)
     def inner(*args, **kwargs):
+        client_ver = search.VERSION[0]
         cluster_ver = current_search.cluster_version[0]
-        client_ver = ES_VERSION[0]
+        cluster_distro = current_search.cluster_distribution
+
+        if SEARCH_DISTRIBUTION.lower() != cluster_distro:
+            raise click.ClickException(
+                "Search distribution mismatch. Invenio was installed with "
+                "{expected} support, but the cluster runs {running}.".format(
+                    expected=SEARCH_DISTRIBUTION.lower(),
+                    running=cluster_distro,
+                )
+            )
+
         if cluster_ver != client_ver:
             raise click.ClickException(
-                'Elasticsearch version mismatch. Invenio was installed with '
-                'Elasticsearch v{client_ver}.x support, but the cluster runs '
-                'Elasticsearch v{cluster_ver}.x.'.format(
+                "{search} version mismatch. Invenio was installed with "
+                "{search} v{client_ver}.x support, but the cluster runs "
+                "{search} v{cluster_ver}.x.".format(
+                    search=SEARCH_DISTRIBUTION.lower(),
                     client_ver=client_ver,
                     cluster_ver=cluster_ver,
-                ))
+                )
+            )
         return f(*args, **kwargs)
+
     return inner
 
 
@@ -54,16 +68,16 @@ def index():
 
 @index.command()
 @with_appcontext
-@es_version_check
+@search_version_check
 def check():
-    """Check Elasticsearch version."""
+    """Check search engine version."""
     click.secho('Checks passed', fg='green')
 
 
 @index.command()
 @click.option('--force', is_flag=True, default=False)
 @with_appcontext
-@es_version_check
+@search_version_check
 def init(force):
     """Initialize registered aliases and mappings."""
     click.secho('Creating indexes...', fg='green', bold=True, file=sys.stderr)
@@ -86,7 +100,7 @@ def init(force):
               prompt='Do you know that you are going to destroy all indexes?')
 @click.option('--force', is_flag=True, default=False)
 @with_appcontext
-@es_version_check
+@search_version_check
 def destroy(force):
     """Destroy all indexes."""
     click.secho('Destroying indexes...', fg='red', bold=True, file=sys.stderr)
@@ -103,7 +117,7 @@ def destroy(force):
 @click.option('--force', is_flag=True, default=False)
 @click.option('--verbose', is_flag=True, default=False)
 @with_appcontext
-@es_version_check
+@search_version_check
 def create(index_name, body, force, verbose):
     """Create a new index."""
     result = current_search_client.indices.create(
@@ -160,7 +174,7 @@ def list_cmd(only_active, only_aliases, verbose):
               expose_value=False,
               prompt='Do you know that you are going to delete the index?')
 @with_appcontext
-@es_version_check
+@search_version_check
 def delete(index_name, force, verbose):
     """Delete index by its name."""
     result = current_search_client.indices.delete(
@@ -179,7 +193,7 @@ def delete(index_name, force, verbose):
 @click.option('--force', is_flag=True, default=False)
 @click.option('--verbose', is_flag=True, default=False)
 @with_appcontext
-@es_version_check
+@search_version_check
 def put(index_name, doc_type, identifier, body, force, verbose):
     """Index input data."""
     result = current_search_client.index(

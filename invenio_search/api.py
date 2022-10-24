@@ -13,8 +13,7 @@ from functools import partial
 
 from flask import current_app, request
 
-from .compat import VERSION as ES_VERSION
-from .compat import Bool, FacetedResponse, FacetedSearch, Ids, Search
+from .engine import dsl
 from .proxies import current_search_client
 from .utils import build_alias_name
 
@@ -63,14 +62,13 @@ class MinShouldMatch(str):
         return False
 
 
-class BaseRecordsSearch(Search):
+class BaseRecordsSearch(dsl.Search):
     """Example subclass for searching records using Elastic DSL."""
 
     class Meta:
         """Configuration for ``Search`` and ``FacetedSearch`` classes."""
 
         index = '_all'
-        doc_types = None
         fields = ('*', )
         facets = {}
 
@@ -83,7 +81,6 @@ class BaseRecordsSearch(Search):
     def __init__(self, **kwargs):
         """Use Meta to set kwargs defaults."""
         kwargs.setdefault('index', getattr(self.Meta, 'index', None))
-        kwargs.setdefault('doc_type', getattr(self.Meta, 'doc_types', None))
         kwargs.setdefault('using', current_search_client)
         kwargs.setdefault('extra', {})
 
@@ -96,7 +93,7 @@ class BaseRecordsSearch(Search):
         default_filter = getattr(self.Meta, 'default_filter', None)
         if default_filter:
             # NOTE: https://github.com/elastic/elasticsearch/issues/21844
-            self.query = Bool(minimum_should_match=MinShouldMatch("0<1"),
+            self.query = dsl.query.Bool(minimum_should_match=MinShouldMatch("0<1"),
                               filter=default_filter)
 
     def get_record(self, id_):
@@ -105,7 +102,7 @@ class BaseRecordsSearch(Search):
         :param id_: The record identifier.
         :returns: The record.
         """
-        return self.query(Ids(values=[str(id_)]))
+        return self.query(dsl.query.Ids(values=[str(id_)]))
 
     def get_records(self, ids):
         """Return records by their identifiers.
@@ -113,7 +110,7 @@ class BaseRecordsSearch(Search):
         :param ids: A list of record identifier.
         :returns: A list of records.
         """
-        return self.query(Ids(values=[str(id_) for id_ in ids]))
+        return self.query(dsl.query.Ids(values=[str(id_) for id_ in ids]))
 
     @classmethod
     def faceted_search(cls, query=None, filters=None, search=None):
@@ -125,22 +122,16 @@ class BaseRecordsSearch(Search):
         """
         search_ = search or cls()
 
-        class RecordsFacetedSearch(FacetedSearch):
+        class RecordsFacetedSearch(dsl.FacetedSearch):
             """Pass defaults from ``cls.Meta`` object."""
 
             index = build_alias_name(search_._index[0])
-            doc_types = getattr(search_.Meta, 'doc_types', ['_all'])
             fields = getattr(search_.Meta, 'fields', ('*', ))
             facets = getattr(search_.Meta, 'facets', {})
 
             def search(self):
                 """Use ``search`` or ``cls()`` instead of default Search."""
-                # Later versions of `elasticsearch-dsl` (>=5.1.0) changed the
-                # Elasticsearch FacetedResponse class constructor signature.
-
-                if ES_VERSION[0] > 2:
-                    return search_.response_class(FacetedResponse)
-                return search_.response_class(partial(FacetedResponse, self))
+                return search_.response_class(dsl.FacetedResponse)
 
         return RecordsFacetedSearch(query=query, filters=filters or {})
 

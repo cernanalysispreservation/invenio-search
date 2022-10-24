@@ -12,10 +12,9 @@ import os
 import time
 import warnings
 
-from .compat import VERSION as ES_VERSION
 from flask import current_app
 
-from .proxies import current_search, current_search_client
+from .proxies import current_search
 
 
 def timestamp_suffix():
@@ -95,21 +94,20 @@ def schema_to_index(schema, index_names=None):
         DeprecationWarning
     )
     parts = schema.split('/')
-    doc_type, ext = os.path.splitext(parts[-1])
-    parts[-1] = doc_type
-    if ES_VERSION[0] >= 7:
-        doc_type = '_doc'
+    rec_type, ext = os.path.splitext(parts[-1])
+    parts[-1] = rec_type
+
 
     if ext not in {'.json', }:
         return (None, None)
 
     if index_names is None:
         index = build_index_from_parts(*parts)
-        return index, doc_type
+        return index
 
     for start in range(len(parts)):
         name = build_index_from_parts(*parts[start:])
         if name in index_names:
-            return name, doc_type
+            return name
 
-    return (None, None)
+    return None
