@@ -8,15 +8,12 @@
 
 """Utility functions for search engine."""
 
-import os
 import time
-import warnings
 
 import six
-from elasticsearch import VERSION as ES_VERSION
 from flask import current_app
 
-from .proxies import current_search, current_search_client
+from .proxies import current_search
 
 
 def timestamp_suffix():
@@ -81,36 +78,3 @@ def build_index_name(index, prefix=None, suffix=None, app=None):
     index = prefix_index(index, prefix=prefix, app=app)
     index = suffix_index(index, suffix=suffix, app=app)
     return index
-
-
-def schema_to_index(schema, index_names=None):
-    """Get index/doc_type given a schema URL.
-
-    :param schema: The schema name
-    :param index_names: A list of index name.
-    :returns: A tuple containing (index, doc_type).
-    """
-    warnings.warn(
-        '"invenio_search.utils.schema_to_index" will be moved to '
-        'invenio-indexer',
-        DeprecationWarning
-    )
-    parts = schema.split('/')
-    doc_type, ext = os.path.splitext(parts[-1])
-    parts[-1] = doc_type
-    if ES_VERSION[0] >= 7:
-        doc_type = '_doc'
-
-    if ext not in {'.json', }:
-        return (None, None)
-
-    if index_names is None:
-        index = build_index_from_parts(*parts)
-        return index, doc_type
-
-    for start in range(len(parts)):
-        name = build_index_from_parts(*parts[start:])
-        if name in index_names:
-            return name, doc_type
-
-    return (None, None)

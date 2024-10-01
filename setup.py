@@ -50,6 +50,17 @@ extras_require = {
         'elasticsearch>=7.0.0,<8.0.0',
         'elasticsearch-dsl>=7.0.0,<8.0.0',
     ],
+    'opensearch1': [
+        'opensearch-py>=1.0.0,<2',
+        'opensearch-dsl>=1.0.0,<2',
+    ],
+    'opensearch2': [
+        'opensearch-py>=2.0.0,<3',
+        'opensearch-dsl>=2.0.0,<3',
+    ],
+    'records': [
+        'invenio-records>=1.0.0',
+    ],
     'tests': tests_require,
 }
 

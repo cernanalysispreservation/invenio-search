@@ -15,8 +15,8 @@ The documentation for the configuration is in docs/configuration.rst.
 # ELASTIC configuration
 #
 
-SEARCH_CLIENT_CONFIG = None
-"""Dictionary of options for the Elasticsearch client.
+SEARCH_HOSTS = None  # default localhost
+"""Elasticsearch hosts for the client.
 
 The value of this variable is passed to :py:class:`elasticsearch.Elasticsearch`
 as keyword arguments and is used to configure the client. See the available
