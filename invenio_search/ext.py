@@ -191,7 +191,7 @@ class _SearchState(object):
         """Build Elasticsearch client."""
         return SearchEngine(
             hosts=self.app.config.get('SEARCH_HOSTS'),
-            connection_class=search.connection.RequestsHttpConnection,
+            # connection_class=search.connection.RequestsHttpConnection,
         )
 
     @property
