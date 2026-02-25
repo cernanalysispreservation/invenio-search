@@ -59,8 +59,8 @@ extras_require = {
         'opensearch-dsl>=2.0.0,<3',
     ],
     'opensearch3': [
-        'opensearch-py>=3.2.0,<4',
-        'opensearch-dsl>=3.2.0,<4',
+        'opensearch-py>=3.0.0,<4',
+        'opensearch-dsl>=3.0.0,<4',
     ],
     'records': [
         'invenio-records>=1.0.0',
